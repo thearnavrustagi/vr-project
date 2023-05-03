@@ -1,4 +1,4 @@
-time, gyroscope.X, gyroscope.Y, gyroscope.Z, accelerometer.X, accelerometer.Y, accelerometer.Z, magnetometer.X, magnetometer.Y, magnetometer.Z 
+time, gyroscope.X, gyroscope.Y, gyroscope.Z, accelerometer.X, accelerometer.Y, accelerometer.Z, magnetometer.X, magnetometer.Y, magnetometer.Z
 0,-0.9375,-1.25,0.875,0.019043,-0.052246,0.97803,0.20996,0.03125,-0.44873
 0.0039062,-0.9375,-1.25,0.875,0.019043,-0.052246,0.97803,0.20996,0.03125,-0.44873
 0.0078125,-0.9375,-1.875,0.25,0.019043,-0.067871,0.99756,0.20996,0.03125,-0.44873

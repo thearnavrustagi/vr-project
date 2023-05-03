@@ -65,7 +65,7 @@ for vertIndex in range(len(model.vertices)):
 	vertexNormals.append(vertNorm)
 
 projectionFunction = lambda x,y,z : getPerspectiveProjection(x,y,z,FOV)
-#projectionFunction = getOrthographicProjection
+projectionFunction = getOrthographicProjection
 
 
 # Render the image iterating through faces
