@@ -13,7 +13,7 @@ height = 500
 FOV = (0.5,0.5)
 image = Image(width, height, Color(255, 255, 255, 255))
 # in polar coordinates (theta, len)
-lens_locations = [(-0.5,0.5)]
+lens_locations = [(0,0)]
 
 # Init z-buffer
 zBuffer = [-float('inf')] * width * height
@@ -21,87 +21,25 @@ zBuffer = [-float('inf')] * width * height
 # Load the model
 #model = Model('data/headset.obj')
 models = [Model('data/cow.obj', gravity=True)]
-[model.normalizeGeometry() for model in models]
 
 def main():
     prev_time = time()
-    a = True
-    while a:
+    while 1:
         delta = time() - prev_time
         print("delta",delta)
         physics_process(models,delta)
         prev_time += delta
         render_scene()
-        a=False
 
 def physics_process (models, delta):
     for model in models:
         model.apply_physics(delta)
-        print(model.displacement.components)
+        model.transform()
+        model.normalizeGeometry()
 
 def render_scene():
     for model in models:
         render_model(model)
-
-def render_model(model):
-    global zBuffer, width, height, FOV, image
-
-    image = Image(width, height, Color(255, 255, 255, 255))
-    # Calculate face normals
-    faceNormals = {}
-    for face in model.faces:
-        p0, p1, p2 = [model.vertices[i] for i in face]
-        faceNormal = (p2-p0).cross(p1-p0).normalize()
-
-        for i in face:
-            if not i in faceNormals:
-                faceNormals[i] = []
-
-            faceNormals[i].append(faceNormal)
-
-    # Calculate vertex normals
-    vertexNormals = []
-    for vertIndex in range(len(model.vertices)):
-        vertNorm = getVertexNormal(vertIndex, faceNormals)
-        vertexNormals.append(vertNorm)
-
-    projectionFunction = lambda x,y,z : getPerspectiveProjection(x,y,z,FOV)
-    projectionFunction = getOrthographicProjection
-
-
-    # Render the image iterating through faces
-    for face in model.faces:
-        p0, p1, p2 = [model.vertices[i] for i in face]
-        n0, n1, n2 = [vertexNormals[i] for i in face]
-
-        # Define the light direction
-        lightDir = Vector(0, 0, -1)
-
-        # Set to true if face should be culled
-        cull = False
-
-        # Transform vertices and calculate lighting intensity per vertex
-        transformedPoints = []
-        for p, n in zip([p0, p1, p2], [n0, n1, n2]):
-            intensity = n * lightDir
-
-            # Intensity < 0 means light is shining through the back of the face
-            # In this case, don't draw the face at all ("back-face culling")
-            if intensity < 0:
-                cull = True
-                break
-
-            vec = (p.x, p.y, p.z)
-            vec = model.apply_transforms(vec)
-            screenX, screenY = projectionFunction(vec[0],vec[1],vec[2])
-            transformedPoints.append(Point(screenX, screenY, vec[2], Color(intensity*255, intensity*255, intensity*255, 255)))
-
-        if not cull:
-            Triangle(transformedPoints[0], transformedPoints[1], transformedPoints[2]).draw(image, zBuffer)
-
-    image.saveAsPNG("image.png")
-    image.close()
-    image.show(True, lens_locations)
 
 def getOrthographicProjection(x, y, z):
     # Convert vertex from world space to screen space
@@ -131,6 +69,70 @@ def getVertexNormal(vertIndex, faceNormalsByVertex):
         normal = normal + adjNormal
 
     return normal / len(faceNormalsByVertex[vertIndex])
+
+
+
+def render_model(model):
+    global zBuffer, width, height, FOV, image
+
+    image = Image(width, height, Color(255, 255, 255, 255))
+    zBuffer = [-float('inf')] * width * height
+    # Calculate face normals
+    faceNormals = {}
+    for face in model.faces:
+        p0, p1, p2 = [model.vertices[i] for i in face]
+        faceNormal = (p2-p0).cross(p1-p0).normalize()
+
+        for i in face:
+            if not i in faceNormals:
+                faceNormals[i] = []
+
+            faceNormals[i].append(faceNormal)
+
+    # Calculate vertex normals
+    vertexNormals = []
+    for vertIndex in range(len(model.vertices)):
+        vertNorm = getVertexNormal(vertIndex, faceNormals)
+        vertexNormals.append(vertNorm)
+
+    projectionFunction = lambda x,y,z : getPerspectiveProjection(x,y,z,FOV)
+    #projectionFunction = getOrthographicProjection
+
+
+    # Render the image iterating through faces
+    for face in model.faces:
+        p0, p1, p2 = [model.vertices[i] for i in face]
+        n0, n1, n2 = [vertexNormals[i] for i in face]
+
+        # Define the light direction
+        lightDir = Vector(0, 0, -1)
+
+        # Set to true if face should be culled
+        cull = False
+
+        # Transform vertices and calculate lighting intensity per vertex
+        transformedPoints = []
+        for p, n in zip([p0, p1, p2], [n0, n1, n2]):
+            intensity = n * lightDir
+
+            # Intensity < 0 means light is shining through the back of the face
+            # In this case, don't draw the face at all ("back-face culling")
+            if intensity < 0:
+                cull = True
+                break
+            color = Color(intensity*255, intensity*255, intensity*255, 255)
+
+            vec = (p.x, p.y, p.z)
+            #vec = model.apply_transform(vec)
+            screenX, screenY = projectionFunction(vec[0],vec[1],vec[2])
+            transformedPoints.append(Point(screenX, screenY, p.y, color))
+
+        if not cull:
+            Triangle(transformedPoints[0], transformedPoints[1], transformedPoints[2]).draw(image, zBuffer)
+
+    image.saveAsPNG("image.png")
+    image.close()
+    image.show()#True, lens_locations)
 
 if __name__ == "__main__":
     main()

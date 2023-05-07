@@ -61,6 +61,19 @@ def rotate (vector, theta) -> np.ndarray :
     return vector
 
 def scale (vector, factor) -> np.ndarray :
-    vector = preprocess((vector,))
+    vector = preprocess((vector,))[0]
+    print(vector,factor)
 
-    return np.array([dim*s for dim, s in zip(vector, factor)])
+    a = np.array([dim*s for dim, s in zip(vector, factor)])
+    print(a)
+
+    return a
+
+def all (point, displacement, rotation, scale_factor):
+    fncs = [translate, rotate, scale]
+    data = [displacement, rotation, scale_factor]
+
+    for fn, vec in zip(fncs, data):
+        point = fn(point,vec)
+
+    return tuple(point)

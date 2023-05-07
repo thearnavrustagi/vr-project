@@ -14,14 +14,15 @@ class Model(object):
         self.faces = []
         self.mass = mass
         self.displacement = Vector(0, 0, 0)
+        self.net_displacement = Vector(0, 0, 0)
         self.momentum = Vector(0, 0, 0)
         self.force = Vector(0, 0, 0)
 
-        self.rotation = Vector(0,0,0)
+        self.rotation = Vector(1,1,1)
         self.scale = Vector(1,1,1)
 
         if gravity:
-            self.force += Vector(0, -0.098, 0)
+            self.force += Vector(0, 0.3, 0)
 
 
         # Read in the file
@@ -64,16 +65,24 @@ class Model(object):
     def apply_physics (self, delta):
         force = self.compute_force()
         self.momentum += self.force*delta
-        self.displacement += (self.momentum/self.mass)*delta
+        self.displacement = (self.momentum/self.mass)*delta
+
+        self.net_displacement += (self.momentum/self.mass)*delta
 
     def compute_force (self):
         drag = DRAG_COEFFECIENT*AIR_DENSITY*AREA/2
         vec = Vector(*tuple([(a*b)/self.mass**2 for a,b in zip(self.momentum.components,self.momentum.components)]))
         return self.force - vec
 
-    def apply_transforms (self,v):
-        v = transform.translate(v,self.displacement.components)
-        v = transform.rotate(v,self.rotation.components)
-        v = transform.scale (v,self.scale.components)[0]
+    def transform (self):
+        d = self.displacement.components
+        r = self.rotation.components
+        s = self.scale.components
+        for i, v in enumerate(self.vertices):
+            self.vertices[i] = Vector(*transform.all(v.components,d,r,s))
 
-        return v
+    def apply_transform (self,v):
+        d = self.net_displacement.components
+        r = self.rotation.components
+        s = self.scale.components
+        return transform.all(v, d, r, s)

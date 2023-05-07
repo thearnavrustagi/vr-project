@@ -141,7 +141,11 @@ class Image(object):
 
     def distortion_correction (self,all_lens):
         distort = lambda x : x + CN[0]*x**3 + CN[1]*x**5
+        def check_sign(anew, a):
+            if np.sign(a) != np.sign(anew): return abs(anew)*np.sign(a)
+            return anew
         self.distortedimage = PILImage.new("RGBA",self.size)
+        
 
         for a in range(self.width):
             for b in range(self.height):
@@ -154,14 +158,18 @@ class Image(object):
                     rnew = distort(r)
                     xnew = float(r*np.cos(theta))
                     ynew = float(r*np.sin(theta))
+
+                    xnew = check_sign(xnew, x)
+                    ynew = check_sign(ynew,y)
                     
-                    print(theta)
-                    xnew = min(self.width-1,int(((xnew+1)*self.width)//2))
-                    ynew = min(self.height-1,int(((ynew+1)*self.height)//2))
+                    xnew = int(((xnew+1)*self.width)//2)
+                    ynew = int(((ynew+1)*self.height)//2)
                     cnew = (xnew, ynew)
 
                     pxl = self.bufferimage.getpixel(tuple(coords))
-                    self.distortedimage.putpixel(cnew,pxl)
+                    try:
+                        self.distortedimage.putpixel(cnew,pxl)
+                    except: pass
 
         return self.distortedimage
                     
