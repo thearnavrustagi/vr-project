@@ -13,7 +13,7 @@ def transform (vector, transform_matrix):
 def translate (vector, translate) -> np.ndarray :
     vector, translate = preprocess((vector, translate))
 
-    return vector+translate
+    return [v+t for v,t in zip(vector,translate)]
 
 def rotate_x (vector, theta) -> np.ndarray :
     vector = preprocess((vector,))
@@ -48,7 +48,7 @@ def rotate_z (vector, theta) -> np.ndarray :
     transform_matrix = np.array([
         [np.cos(theta),-np.sin(theta),0,0],
         [np.sin(theta),np.cos(theta),0,0],
-        [0,0,1,0]
+        [0,0,1,0],
         [0,0,0,1]])
 
     return transform(vector, transform_matrix)

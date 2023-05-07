@@ -1,5 +1,6 @@
 import pandas as pd
 import math
+from qmath import euler_to_quaternion
 import numpy as np
 
 FPATH = "./dataset/IMUData.csv"
@@ -15,6 +16,15 @@ def normalize(dataframe):
         data[i] = row / norm;
 
     return pd.DataFrame(data, columns=[d for d in direction])
+
+def convert_to_quaternion (dataframe):
+    data = dataframe.to_numpy()
+    qdata = []
+
+    for i, row in enumerate(data):
+        qdata.append(np.array(euler_to_quaternion(*tuple(row))))
+
+    return pd.DataFrame(np.array(qdata), columns=[a for a in 'XYZW'])
 
 if __name__ == "__main__":
     dataframe = pd.read_csv(FPATH)
@@ -32,6 +42,8 @@ if __name__ == "__main__":
         cols = [d for d in direction]
         data[i][cols] = normalize(data[i][cols])
 
-
     for i in instrument:
         data[i].to_csv(f'./dataset/{i}.csv')
+
+    dataframe[['time']].to_csv("./dataset/time.csv")
+    convert_to_quaternion(data['gyroscope']).to_csv('./dataset/quaternion_gyroscope.csv')
