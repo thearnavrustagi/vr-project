@@ -3,41 +3,52 @@ from model import Model
 from shape import Point, Line, Triangle
 from vector import Vector
 import transform
+import pandas as pd
 
-from time import time
+from constants import FOV
+from time import time, sleep
+from qmath import euler
 
 import numpy as np
 
 width = 500
 height = 500
-FOV = (0.5,0.5)
-image = Image(width, height, Color(255, 255, 255, 255))
+img_color =  Color(171, 209, 255, 255) 
+image = Image(width, height,img_color)
 # in polar coordinates (theta, len)
-lens_locations = [(0,0)]
+lens_locations = [(-0,0)]
 
 # Init z-buffer
 zBuffer = [-float('inf')] * width * height
 
 # Load the model
-#model = Model('data/headset.obj')
-models = [Model('data/cow.obj', gravity=True)]
+models = [Model('data/headset.obj', gravity=True)]
+[model.normalizeGeometry() for model in models]
 
 def main():
-    prev_time = time()
-    while 1:
-        delta = time() - prev_time
-        print("delta",delta)
-        physics_process(models,delta)
+    prev_time = 0
+    gyroscope = pd.read_csv('./dataset/gyroscope.csv')
+    time_df = pd.read_csv ('./dataset/time.csv')
+    for i, row in gyroscope.iterrows():
+        delta = 1#time_df.iloc[[i]].to_numpy()[0][1] - prev_time
+        print("done",(float(i)/6958))
+        renderable = physics_process(models,delta,row)
         prev_time += delta
-        render_scene()
+        render_scene(renderable)
 
-def physics_process (models, delta):
+
+def physics_process (models, delta, row):
+    renderable = []
     for model in models:
-        model.apply_physics(delta)
-        model.transform()
-        model.normalizeGeometry()
+        model.angular_momentum = Vector(*tuple(row[1:]))
+        transformed = model.apply_physics(delta)
+        transformed.transform()
+        transformed.normalizeGeometry()
 
-def render_scene():
+        renderable.append(transformed)
+    return renderable
+
+def render_scene(models):
     for model in models:
         render_model(model)
 
@@ -52,16 +63,17 @@ def getOrthographicProjection(x, y, z):
 
 # fov tuple containing x and y fov
 def getPerspectiveProjection(x, y, z, fov:tuple):
-    # uses simple trignometry to get the location on the screen
-    capture_size = tuple(map(lambda a,b : (a+5)*np.tan(b) ,(z,z),fov))
+       # uses simple trignometry to get the location on the screen
+    capture_size = tuple(map(lambda a,b,c : c+2*a*np.tan(b) ,(z,z),fov,(width,height)))
+    delta = tuple(map(lambda a,b : a*np.tan(b) ,(z,z),fov))
+    scale = (capture_size[0]/width, capture_size[1]/height)
 #   d = 5
 #   screenX = int(x*d/z)*5
 #   screenY = int(y*d/z)*5#height
-    screenX = int((x+1)*((width/capture_size[0])))
-    screenY = int((y+1)*((height/capture_size[1])))
+    screenX, screenY = getOrthographicProjection(x,y,z)
+    return int(screenX*scale[0]+delta[0]), int(screenY*scale[1]+delta[1])
 
-    return screenX, screenY
-
+    return screenX, screenY 
 def getVertexNormal(vertIndex, faceNormalsByVertex):
     # Compute vertex normals by averaging the normals of adjacent faces
     normal = Vector(0, 0, 0)
@@ -73,9 +85,9 @@ def getVertexNormal(vertIndex, faceNormalsByVertex):
 
 
 def render_model(model):
-    global zBuffer, width, height, FOV, image
+    global zBuffer, width, height, FOV, image, img_color
 
-    image = Image(width, height, Color(255, 255, 255, 255))
+    image = Image(width, height, img_color)
     zBuffer = [-float('inf')] * width * height
     # Calculate face normals
     faceNormals = {}
@@ -130,9 +142,10 @@ def render_model(model):
         if not cull:
             Triangle(transformedPoints[0], transformedPoints[1], transformedPoints[2]).draw(image, zBuffer)
 
+    #image.distort(lens_locations)
     image.saveAsPNG("image.png")
     image.close()
-    image.show()#True, lens_locations)
+    image.show()
 
 if __name__ == "__main__":
     main()

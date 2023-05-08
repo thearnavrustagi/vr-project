@@ -49,6 +49,7 @@ class Color(object):
         outA = self.a() + int(destColor.a() * (1-alpha))
         return Color(outR, outG, outB, outA)
 
+i_no = 0
 class Image(object):
     """ An image class capable of generating and saving a PNG.
         Attributes:
@@ -67,6 +68,7 @@ class Image(object):
         self.buffer = row * height
 
         self.bufferimage = None
+        self.viewing = False
 
     def setPixel(self, x, y, color):
         """ Set the color value for the pixel at (x, y)."""
@@ -87,6 +89,7 @@ class Image(object):
         self.buffer[index + 1 : index + 5] = outColor.getTuple()
 
     def saveAsPNG(self, filename = "render.png"):
+        global i_no
         """ Pack a new buffer formatted as a PNG, then save it to a file."""
         print("Saving PNG...")
 
@@ -115,11 +118,18 @@ class Image(object):
                      makeChunk(b'IDAT', zlib.compress(self.buffer, 9)) + \
                      makeChunk(b'IEND', b'')
 
-        png = open(filename, 'wb')
+        png = open(f'./frames/{i_no}.png', 'wb')
         png.write(packedData)
         png.close()
+        i_no += 1
 
     def show (self,distortion=False,lens=None):
+        self.make_bufferimage(distortion, lens)        
+        self.viewing = True
+        self.bufferimage.save(".temp.png")
+        self.viewer = subprocess.Popen(['xdg-open', './.temp.png'])
+
+    def make_bufferimage(self, distortion, lens):
         self.bufferimage = PILImage.new("RGBA",self.size)
         
         for row_no in range(len(self.buffer[::1+self.width*4])):
@@ -134,9 +144,19 @@ class Image(object):
         
         if distortion:
             self.bufferimage = self.distortion_correction(lens)
-        
-        self.bufferimage.save(".temp.png")
-        self.viewer = subprocess.Popen(['xdg-open', './.temp.png'])
+
+
+    def distort (self,lens):
+        distortedimage = self.distortion_correction(lens)
+        width, height = self.size
+
+        buffer = bytearray(0)
+        for x in range(width):
+            row = bytearray(1)
+            for y in range(height):
+                row += bytearray(self.distortedimage.getpixel((y,x)))
+            buffer += row
+        self.buffer = buffer
 
 
     def distortion_correction (self,all_lens):
@@ -144,38 +164,49 @@ class Image(object):
         def check_sign(anew, a):
             if np.sign(a) != np.sign(anew): return abs(anew)*np.sign(a)
             return anew
-        self.distortedimage = PILImage.new("RGBA",self.size)
+        width, height = bigger = ((self.width*1,self.height*1))
+        self.distortedimage = PILImage.new("RGBA",bigger)
+        if self.bufferimage == None: self.make_bufferimage(False,all_lens)
+        big = self.bufferimage.resize(bigger)
+
         
 
-        for a in range(self.width):
-            for b in range(self.height):
+        for a in range(width):
+            for b in range(height):
                 for lens in all_lens:
-                    x = (2*a-self.width)/self.width
-                    y = (2*b-self.height)/self.height
+                    x = (2*a-width)/width
+                    y = (2*b-height)/height
+                    # converted to [-1,1]
+
                     coords = np.array((x,y))
                     r = np.linalg.norm(coords-np.array(lens))
                     theta = np.arctan(y/x) if x else 0
+
                     rnew = distort(r)
-                    xnew = float(r*np.cos(theta))
-                    ynew = float(r*np.sin(theta))
+                    xnew = float(rnew*np.cos(theta))
+                    ynew = float(rnew*np.sin(theta))
 
                     xnew = check_sign(xnew, x)
                     ynew = check_sign(ynew,y)
                     
-                    xnew = int(((xnew+1)*self.width)//2)
-                    ynew = int(((ynew+1)*self.height)//2)
+                    xnew = int(((xnew+1)*width)//2)
+                    ynew = int(((ynew+1)*height)//2)
                     cnew = (xnew, ynew)
 
-                    pxl = self.bufferimage.getpixel(tuple(coords))
+                    pxl = big.getpixel((a,b))
                     try:
                         self.distortedimage.putpixel(cnew,pxl)
                     except: pass
+            print((float(a)/(width)*100)//1)
+
+        self.distortedimage = self.distortedimage.resize(self.size)
 
         return self.distortedimage
                     
 
     def close(self):
-        if self.bufferimage:
+        if self.viewing:
             self.viewer.terminate()
             self.viewer.kill()  # make sure the viewer is gone; not needed on Windows
+            self.viewing = False
 

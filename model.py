@@ -4,6 +4,7 @@
 """
 
 from vector import Vector
+from math import pi
 import transform
 from constants import DRAG_COEFFECIENT, AIR_DENSITY, AREA
 
@@ -13,16 +14,23 @@ class Model(object):
         self.vertices = []
         self.faces = []
         self.mass = mass
+
         self.displacement = Vector(0, 0, 0)
         self.net_displacement = Vector(0, 0, 0)
         self.momentum = Vector(0, 0, 0)
         self.force = Vector(0, 0, 0)
 
-        self.rotation = Vector(1,1,1)
+        self.angular_momentum = Vector(0,0,0)
+        self.rotation = Vector(0,0,0)
+        self.net_rotation = Vector(0,0,0)
+
         self.scale = Vector(1,1,1)
 
+
+        self.filename = file
+
         if gravity:
-            self.force += Vector(0, 0.3, 0)
+            self.force += Vector(0, 0, 0)
 
 
         # Read in the file
@@ -64,10 +72,27 @@ class Model(object):
 
     def apply_physics (self, delta):
         force = self.compute_force()
-        self.momentum += self.force*delta
-        self.displacement = (self.momentum/self.mass)*delta
 
-        self.net_displacement += (self.momentum/self.mass)*delta
+        self.momentum += self.force*delta
+        self.displacement += (self.momentum/self.mass)*delta
+        self.rotation += self.angular_momentum * delta
+        self.rotation = Vector(*tuple(c%(2*pi) for c in self.rotation.components))
+
+        model = Model(self.filename, gravity = True)
+        model.displacement = self.displacement
+        model.rotation = self.rotation 
+        model.scale = self.scale
+
+        return model
+
+    
+    def calculate_centroid(self):
+        self.centroid = Vector(0,0,0)
+
+        for v in self.vertices: 
+            self.centroid += v
+
+        self.centroid /= len(self.vertices)
 
     def compute_force (self):
         drag = DRAG_COEFFECIENT*AIR_DENSITY*AREA/2
@@ -75,11 +100,18 @@ class Model(object):
         return self.force - vec
 
     def transform (self):
+        self.calculate_centroid()
         d = self.displacement.components
         r = self.rotation.components
         s = self.scale.components
+
         for i, v in enumerate(self.vertices):
-            self.vertices[i] = Vector(*transform.all(v.components,d,r,s))
+            vec = (self.vertices[i]-self.centroid).components
+            vec = transform.rotate(vec,r)
+            vec = transform.scale(vec,s)
+            vec = transform.translate(vec,d)
+            vec = tuple(i+j for i,j in zip(vec,self.centroid.components))
+            self.vertices[i] = Vector(*vec)
 
     def apply_transform (self,v):
         d = self.net_displacement.components
