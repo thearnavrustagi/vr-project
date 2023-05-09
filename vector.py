@@ -1,4 +1,5 @@
 import math
+import numpy as np
 import numbers
 
 class Vector(object):
@@ -87,3 +88,12 @@ class Vector(object):
 
     def __iter__(self):
         return self.components.__iter__()
+
+    def copy (self):
+        c = []
+        for comp in self.components:
+            c.append(comp)
+        return Vector(*tuple(c))
+
+def vec_mat_mul (matrix, vector):
+    return Vector(*tuple(np.matmul(matrix, vector.components)))

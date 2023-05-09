@@ -63,7 +63,7 @@ Not generalising every collision polygon as a sphere gives the developer more fr
 \pagebreak
 \section{Question 6}
 The distortion correction can be implemented in a GPU by using transformation matrix' as GPUs excel at doing matrix multiplication, an easy way is that of multiplying every position $(x,y)$ with a transformation matrix to move it to its new position $(xnew,ynew)$.\\\\
-Another ambitious idea might be to create a new matrix of the same dimensions as the image, and multiply it with the image, but I am not sure about its feasability, or the maths adding up
+Another idea is to multiply the distance $r$ between the lens and a given point $(x,y)$ by a vector which contains values of $r$ thus forming the equation
 
 %--/Paper--
 

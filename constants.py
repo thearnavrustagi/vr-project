@@ -2,6 +2,6 @@ DRAG_COEFFECIENT = 0.5
 AIR_DENSITY = 1.3
 AREA = 0.2
 
-CN = [0.3, 0.5]
+CN = [0.1, 0.2]
 
-FOV = [0.5,0.5]
+FOV = [2,2]

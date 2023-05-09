@@ -11,8 +11,8 @@ from qmath import euler
 
 import numpy as np
 
-width = 500
-height = 500
+width = 300
+height = 300
 img_color =  Color(171, 209, 255, 255) 
 image = Image(width, height,img_color)
 # in polar coordinates (theta, len)
@@ -22,35 +22,54 @@ lens_locations = [(-0,0)]
 zBuffer = [-float('inf')] * width * height
 
 # Load the model
-models = [Model('data/headset.obj', gravity=True)]
+models = [Model('data/headset.obj',displacement=Vector(0,0,0))]#, Model('data/headset.obj', gravity=True, momentum=Vector(0,0,0),scale=Vector(0.2,0.2,0.2),displacement=Vector(0,2,0))]
 [model.normalizeGeometry() for model in models]
 
 def main():
+    global models
     prev_time = 0
     gyroscope = pd.read_csv('./dataset/gyroscope.csv')
     time_df = pd.read_csv ('./dataset/time.csv')
     for i, row in gyroscope.iterrows():
-        delta = 1#time_df.iloc[[i]].to_numpy()[0][1] - prev_time
+        delta = time_df.iloc[[i]].to_numpy()[0][1] - prev_time
         print("done",(float(i)/6958))
-        renderable = physics_process(models,delta,row)
+        renderable, models = physics_process(models,delta,row)
         prev_time += delta
         render_scene(renderable)
 
 
 def physics_process (models, delta, row):
     renderable = []
+    models = check_collisions(models)
     for model in models:
-        model.angular_momentum = Vector(*tuple(row[1:]))
+        model.angular_velocity = Vector(*tuple(row[1:]))
         transformed = model.apply_physics(delta)
         transformed.transform()
         transformed.normalizeGeometry()
 
         renderable.append(transformed)
-    return renderable
+
+
+    return renderable, models
+
+def check_collisions(models):
+    for i,model in enumerate(models):
+        for other in models[i+1:]:
+            thresh = other.collision_radius + model.collision_radius
+            if (other.displacement-model.displacement).norm() < thresh:
+                other.collide_with(model)
+    return models
 
 def render_scene(models):
+    global image, zBuffer
+
+    zBuffer = [-float('inf')] * width * height
+    image = Image(width, height, img_color)
+
     for model in models:
         render_model(model)
+
+    image.close()
 
 def getOrthographicProjection(x, y, z):
     # Convert vertex from world space to screen space
@@ -60,8 +79,8 @@ def getOrthographicProjection(x, y, z):
 
     return screenX, screenY
 
-
 # fov tuple containing x and y fov
+'''
 def getPerspectiveProjection(x, y, z, fov:tuple):
        # uses simple trignometry to get the location on the screen
     capture_size = tuple(map(lambda a,b,c : c+2*a*np.tan(b) ,(z,z),fov,(width,height)))
@@ -73,7 +92,7 @@ def getPerspectiveProjection(x, y, z, fov:tuple):
     screenX, screenY = getOrthographicProjection(x,y,z)
     return int(screenX*scale[0]+delta[0]), int(screenY*scale[1]+delta[1])
 
-    return screenX, screenY 
+'''
 def getVertexNormal(vertIndex, faceNormalsByVertex):
     # Compute vertex normals by averaging the normals of adjacent faces
     normal = Vector(0, 0, 0)
@@ -82,13 +101,23 @@ def getVertexNormal(vertIndex, faceNormalsByVertex):
 
     return normal / len(faceNormalsByVertex[vertIndex])
 
+def getPerspectiveProjection (x,y,z,n,f):
+#    x,y = getOrthographicProjection(x,y,z)
+    matrix = np.array([
+        [n,0,0,0],
+        [0,n,0,0],
+        [0,0,(f+n),-f*n],
+        [0,0,1,0]])
+    
+    res = np.matmul(np.array([x,y,z,1]),matrix)
+
+    return int(res[0]/res[3]), int(res[1]/res[3])
+
 
 
 def render_model(model):
     global zBuffer, width, height, FOV, image, img_color
 
-    image = Image(width, height, img_color)
-    zBuffer = [-float('inf')] * width * height
     # Calculate face normals
     faceNormals = {}
     for face in model.faces:
@@ -107,8 +136,8 @@ def render_model(model):
         vertNorm = getVertexNormal(vertIndex, faceNormals)
         vertexNormals.append(vertNorm)
 
-    projectionFunction = lambda x,y,z : getPerspectiveProjection(x,y,z,FOV)
-    #projectionFunction = getOrthographicProjection
+    #projectionFunction = lambda x,y,z : getPerspectiveProjection(x,y,z,0.1,10)
+    projectionFunction = getOrthographicProjection
 
 
     # Render the image iterating through faces
@@ -144,8 +173,6 @@ def render_model(model):
 
     #image.distort(lens_locations)
     image.saveAsPNG("image.png")
-    image.close()
-    image.show()
 
 if __name__ == "__main__":
     main()
